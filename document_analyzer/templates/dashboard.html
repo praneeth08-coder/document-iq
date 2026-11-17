@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - DocumentIQ Enterprise{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
+  <div>
+    <h1>Contract Overview &amp; Analytics</h1>
+    <p class="muted">Real metrics calculated from your analyzed contracts and tracked obligations.</p>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <a href="{{ url_for('compare') }}" class="btn">Compare Versions</a>
+    <a href="{{ url_for('index') }}" class="btn primary">Analyze Document</a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+  <div class="card kpi-card">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+    </div>
+    <div>
+      <div class="kpi-val">{{ stats.total_docs }}</div>
+      <div class="kpi-label">Analyzed Documents</div>
+    </div>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="kpi-icon danger">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+    </div>
+    <div>
+      <div class="kpi-val">{{ stats.total_high }}</div>
+      <div class="kpi-label">High-Risk Traps</div>
+    </div>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="kpi-icon warning">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    </div>
+    <div>
+      <div class="kpi-val">{{ stats.total_medium }}</div>
+      <div class="kpi-label">Medium-Risk Flags</div>
+    </div>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="kpi-icon success">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    </div>
+    <div>
+      <div class="kpi-val">{{ stats.total_obligations }}</div>
+      <div class="kpi-label">Tracked Obligations</div>
+    </div>
+  </div>
+</div>
+
+<div class="two" style="margin-top: 24px;">
+  <!-- Recent Documents -->
+  <section class="card">
+    <div class="block-head">
+      <h2>Recent Documents</h2>
+      <a class="link" href="{{ url_for('history') }}">View all</a>
+    </div>
+    
+    {% if recent %}
+    <div class="table-scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Score</th>
+            <th>Level</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in recent %}
+          <tr>
+            <td style="font-weight: 600;">
+              <a href="{{ url_for('analysis', analysis_id=row.id) }}" style="color: var(--brand); text-decoration: none;">{{ row.filename }}</a>
+              <span class="muted" style="display: block; font-size: 0.8rem; font-weight: normal;">{{ row.created_at }}</span>
+            </td>
+            <td><b>{{ row.score }}</b>/100</td>
+            <td><span class="badge {{ row.level|slug }}">{{ row.level }}</span></td>
+            <td style="text-align: right;">
+              <a class="btn sm" href="{{ url_for('analysis', analysis_id=row.id) }}">Inspect</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <p>No documents analyzed yet.</p>
+      <div style="margin-top: 12px;"><a href="{{ url_for('index') }}" class="btn primary sm">Analyze First Document</a></div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Upcoming Obligations & Quick Actions -->
+  <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Obligations Card -->
+    <section class="card">
+      <div class="block-head">
+        <h2>Detected Obligations</h2>
+        <a class="link" href="{{ url_for('obligations') }}">Manage</a>
+      </div>
+      
+      {% if obligations %}
+      <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
+        {% for ob in obligations %}
+        <li style="padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--line-light);">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <span class="badge neutral" style="font-size: 0.72rem;">{{ ob.kind }}</span>
+            <a href="{{ url_for('analysis', analysis_id=ob.doc_id) }}" class="link" style="font-size: 0.82rem;">{{ ob.doc }}</a>
+          </div>
+          <div style="margin-top: 6px; font-weight: 600; font-size: 0.92rem;">{{ ob.detail }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty small">
+        <p>No contractual payment or notice deadlines detected yet. Upload a lease or contract to populate.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- Quick Actions Card -->
+    <section class="card">
+      <h2>Quick Actions</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;">
+        <a href="{{ url_for('index') }}" class="btn" style="text-align: center; justify-content: center;">
+          Upload New File
+        </a>
+        <a href="{{ url_for('compare') }}" class="btn" style="text-align: center; justify-content: center;">
+          Redline Diff
+        </a>
+        <a href="{{ url_for('reports') }}" class="btn" style="text-align: center; justify-content: center;">
+          PDF Audit Center
+        </a>
+        <a href="{{ url_for('obligations') }}" class="btn" style="text-align: center; justify-content: center;">
+          Obligation Calendar
+        </a>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

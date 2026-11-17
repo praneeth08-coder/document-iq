@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge %}
+{% block title %}Analysis History - DocumentIQ{% endblock %}
+{% block page_title %}Analysis History{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Analysis history</h1>
+  <p class="lead">Past results saved in this browser. Open one to review it, download the PDF report or delete it.</p>
+</section>
+{% if rows %}
+<div class="table-scroll">
+<table class="table">
+  <thead><tr><th>File</th><th>Analysed</th><th>Pages</th><th>Clauses</th><th>Attention</th><th><span class="sr">Actions</span></th></tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="fname">{{ row.filename }}</td>
+      <td>{{ row.created_at }}</td>
+      <td>{{ row.page_count or '-' }}</td>
+      <td>{{ row.clause_count }}</td>
+      <td>{{ badge(row.level) }} <span class="muted">{{ row.score }}/100</span></td>
+      <td class="right actions-cell">
+        <a class="link" href="{{ url_for('analysis', analysis_id=row.id) }}">Open</a>
+        <a class="link" href="{{ url_for('analysis_report', analysis_id=row.id) }}">PDF</a>
+        <form method="post" action="{{ url_for('analysis_delete', analysis_id=row.id) }}" data-confirm="Delete this analysis?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="link danger" type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty">Nothing here yet. <a class="link" href="{{ url_for('index') }}">Analyze your first document</a>.</p>
+{% endif %}
+{% endblock %}

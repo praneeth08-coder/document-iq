@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "macros.html" import dropzone, recent_table %}
+{% block title %}Document Analyzer - DocumentIQ{% endblock %}
+{% block page_title %}Document Analyzer{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-top: 10px;">
+  <div class="hero-copy">
+    <h1>Inspect Contract Risks &amp; Obligations</h1>
+    <p class="lead">Upload your lease, service agreement, NDA, or terms of service. DocumentIQ surfaces automatic rollovers, liability traps, dispute restrictions, and key payment deadlines.</p>
+    
+    <figure class="specimen" aria-label="Example of a highlighted clause">
+      <blockquote class="orig">This agreement <mark class="lv-high">renews automatically</mark> for successive twelve-month terms unless you give <mark class="lv-medium">sixty days' written notice</mark> before the term ends.</blockquote>
+      <figcaption>
+        <span><span class="badge high">High</span> Auto-renewal liability</span>
+        <span><span class="badge medium">Medium</span> Strict notice window</span>
+      </figcaption>
+    </figure>
+  </div>
+
+  <form class="card upload" method="post" action="{{ url_for('analyze') }}" enctype="multipart/form-data" data-upload>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2>Upload Contract</h2>
+    {{ dropzone("document", "document", "Drop contract here or browse", "PDF, DOCX or TXT, up to 10 MB") }}
+    <p class="dz-error" role="alert" {% if not error %}hidden{% endif %}>{{ error }}</p>
+    <button class="btn primary wide" type="submit"><span class="btn-label">Run Risk Analysis</span></button>
+    <p class="fine">Documents are processed securely in session memory and never shared with public third-party LLMs.</p>
+    <p class="fine">Need to compare redlines? <a class="link" href="{{ url_for('compare') }}">Compare two versions</a>.</p>
+  </form>
+</section>
+
+{% if recent %}
+<section class="block">
+  <div class="block-head">
+    <h2>Recent analyses</h2>
+    <a class="link" href="{{ url_for('history') }}">View all</a>
+  </div>
+  {{ recent_table(recent) }}
+</section>
+{% endif %}
+{% endblock %}

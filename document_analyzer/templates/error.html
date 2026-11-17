@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} - Document Risk &amp; Obligation Analyzer{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>{{ code }}</h1>
+  <p class="lead">{{ message }}</p>
+  <p class="actions"><a class="btn primary" href="{{ url_for('index') }}">Back to the analyzer</a></p>
+</section>
+{% endblock %}

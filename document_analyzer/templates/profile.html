@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}User Profile - DocumentIQ{% endblock %}
+{% block page_title %}Profile{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h1>Enterprise Profile</h1>
+  <p class="muted">Manage your personal details and organization workspace.</p>
+</div>
+
+<div class="card" style="max-width: 600px;">
+  <h2>Account Information</h2>
+  <div style="margin-top: 18px; display: grid; gap: 14px;">
+    <div>
+      <label class="section">Full Name</label>
+      <div style="font-weight: 600; font-size: 1.05rem;">{{ current_user.full_name if current_user else 'Enterprise User' }}</div>
+    </div>
+    <div>
+      <label class="section">Email Address</label>
+      <div style="font-weight: 500;">{{ current_user.email if current_user else 'user@documentiq.local' }}</div>
+    </div>
+    <div>
+      <label class="section">Organization / Company</label>
+      <div style="font-weight: 500;">{{ current_user.company or 'Legal Operations' if current_user else 'DocumentIQ Pro' }}</div>
+    </div>
+    <div>
+      <label class="section">Account Tier</label>
+      <div><span class="badge" style="background: var(--brand-soft); color: var(--brand); border-color: rgba(37,99,235,0.2);">DocumentIQ Enterprise</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

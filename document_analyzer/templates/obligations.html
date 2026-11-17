@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Obligation Manager - DocumentIQ{% endblock %}
+{% block page_title %}Obligation Manager{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h1>Contractual Obligations &amp; Deadlines</h1>
+  <p class="muted">All parsed notice cutoff periods and payment milestones aggregated across your repository.</p>
+</div>
+
+<div class="two">
+  <!-- Notice periods -->
+  <section class="card">
+    <div class="block-head">
+      <h2>Notice Periods &amp; Termination Windows</h2>
+      <span class="badge neutral">{{ notices|length }} Tracked</span>
+    </div>
+
+    {% if notices %}
+    <div class="table-scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Notice Period</th>
+            <th>Subject</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for n in notices %}
+          <tr>
+            <td><a href="{{ url_for('analysis', analysis_id=n.analysis_id) }}" class="link">{{ n.filename }}</a></td>
+            <td><b style="color: var(--brand);">{{ n.period }}</b></td>
+            <td>{{ n.about }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">No notice periods detected across your documents.</div>
+    {% endif %}
+  </section>
+
+  <!-- Payment Obligations -->
+  <section class="card">
+    <div class="block-head">
+      <h2>Payment Obligations &amp; Deposits</h2>
+      <span class="badge neutral">{{ payments|length }} Tracked</span>
+    </div>
+
+    {% if payments %}
+    <div class="table-scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Amount</th>
+            <th>Type</th>
+            <th>Schedule</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payments %}
+          <tr>
+            <td><a href="{{ url_for('analysis', analysis_id=p.analysis_id) }}" class="link">{{ p.filename }}</a></td>
+            <td><b class="amount">{{ p.amount }}</b></td>
+            <td>{{ p.kind }}</td>
+            <td class="muted">{{ p.frequency or p.condition or 'Due per terms' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">No monetary figures or fee schedules detected.</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

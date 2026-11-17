@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Help &amp; Support - DocumentIQ{% endblock %}
+{% block page_title %}Help &amp; Support{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h1>Enterprise Help &amp; Documentation</h1>
+  <p class="muted">Guides on reading risk classifications, obligation parsing, and version diffing.</p>
+</div>
+
+<div class="pub-grid-3">
+  <div class="card">
+    <h3>Understanding Attention Scores</h3>
+    <p class="muted" style="margin-top: 8px; font-size: 0.92rem; line-height: 1.6;">
+      Scores range from 0 to 100. Higher scores indicate an increased density of severe liabilities, unilateral change clauses, or multi-year auto-renewals.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>Obligation Detection</h3>
+    <p class="muted" style="margin-top: 8px; font-size: 0.92rem; line-height: 1.6;">
+      Notice windows (e.g., "60 days written notice") and payment constraints are parsed automatically using regular expression grammar and semantic contexts.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>Comparing Drafts</h3>
+    <p class="muted" style="margin-top: 8px; font-size: 0.92rem; line-height: 1.6;">
+      Use Version Compare to match corresponding clauses between your standard template and a counterparty's redlined markup.
+    </p>
+  </div>
+</div>
+{% endblock %}

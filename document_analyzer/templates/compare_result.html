@@ -1,0 +1,217 @@
+﻿{% extends "base.html" %}
+{% from "macros.html" import badge, where %}
+{% block title %}Version Comparison - DocumentIQ{% endblock %}
+{% block page_title %}Comparison Results{% endblock %}
+
+{% macro flags(reasons) %}
+  {% if reasons %}
+  <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+    {% for r in reasons %}
+    <span class="chip {{ r.level|slug }}" style="font-size: 0.76rem; padding: 2px 8px;">{{ r.category }}: {{ r.level }} ({{ r.title }})</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 14px; flex-wrap: wrap;">
+  <div>
+    <h1 style="font-size: 1.6rem; margin: 0;">Version Comparison Analysis</h1>
+    <p class="muted" style="font-size: 0.88rem; margin-top: 3px;">
+      Comparing <strong>{{ old_name }}</strong> (V1) &rarr; <strong style="color: var(--brand);">{{ new_name }}</strong> (V2)
+    </p>
+  </div>
+  <div style="display: flex; gap: 8px;">
+    <a class="btn sm" href="{{ url_for('compare') }}">Compare Other Files</a>
+    <a class="btn sm primary" href="{{ url_for('dashboard') }}">Dashboard</a>
+  </div>
+</div>
+
+<!-- Risk Change Analysis Section - Compact Single Row Banner -->
+{% if diff.risk_analysis %}
+{% set ra = diff.risk_analysis %}
+<section class="card" style="padding: 14px 18px; margin-bottom: 14px; border-left: 5px solid {% if ra.new_level == 'High' %}var(--high){% elif ra.new_level == 'Medium' %}var(--medium){% else %}var(--ok){% endif %};">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 10px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <h3 style="font-size: 1.05rem; margin: 0;">Risk Change Posture:</h3>
+      <span class="badge {{ ra.old_level|slug }}" style="font-size: 0.78rem;">V1: {{ ra.old_level }}</span>
+      <span style="color: var(--muted); font-weight: 700;">&rarr;</span>
+      <span class="badge {{ ra.new_level|slug }}" style="font-size: 0.78rem;">V2: {{ ra.new_level }}</span>
+    </div>
+    
+    <!-- Inline Metrics Chips -->
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <span class="chip" style="font-size: 0.78rem; background: var(--high-bg); color: var(--high); border: 1px solid var(--high-border);">
+        <strong>{{ ra.new_risks_count }}</strong> New Risk Provisions
+      </span>
+      <span class="chip" style="font-size: 0.78rem; background: var(--medium-bg); color: var(--medium); border: 1px solid var(--medium-border);">
+        <strong>{{ ra.increased_count }}</strong> Increased Severity
+      </span>
+      <span class="chip" style="font-size: 0.78rem; background: var(--low-bg); color: var(--low); border: 1px solid var(--low-border);">
+        <strong>{{ ra.reduced_count }}</strong> Reduced Severity
+      </span>
+      <span class="chip" style="font-size: 0.78rem; background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok);">
+        <strong>{{ ra.resolved_risks_count }}</strong> Resolved
+      </span>
+    </div>
+  </div>
+
+  {% if ra.notable_changes %}
+  <div style="background: var(--bg-subtle); padding: 8px 12px; border-radius: 6px; font-size: 0.84rem; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+    <span style="font-weight: 700; color: var(--brand); font-size: 0.82rem;">Key Highlights:</span>
+    {% for item in ra.notable_changes %}
+      <span style="color: var(--ink);">&bull; {{ item }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<!-- Quick Statistics Bar - Compact Inline Row -->
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;">
+  <div class="card" style="padding: 10px 14px; text-align: center;">
+    <div style="font-size: 1.3rem; font-weight: 800; color: #2563eb; line-height: 1;">{{ diff.modified|length }}</div>
+    <div class="muted" style="font-size: 0.78rem; margin-top: 3px;">Modified</div>
+  </div>
+  <div class="card" style="padding: 10px 14px; text-align: center;">
+    <div style="font-size: 1.3rem; font-weight: 800; color: var(--ok); line-height: 1;">{{ diff.added|length }}</div>
+    <div class="muted" style="font-size: 0.78rem; margin-top: 3px;">Added</div>
+  </div>
+  <div class="card" style="padding: 10px 14px; text-align: center;">
+    <div style="font-size: 1.3rem; font-weight: 800; color: var(--high); line-height: 1;">{{ diff.removed|length }}</div>
+    <div class="muted" style="font-size: 0.78rem; margin-top: 3px;">Removed</div>
+  </div>
+  <div class="card" style="padding: 10px 14px; text-align: center;">
+    <div style="font-size: 1.3rem; font-weight: 800; color: var(--muted); line-height: 1;">{{ diff.unchanged }}</div>
+    <div class="muted" style="font-size: 0.78rem; margin-top: 3px;">Unchanged</div>
+  </div>
+</div>
+
+{% if diff.note %}<p class="flash info" style="margin-bottom: 12px; padding: 8px 12px; font-size: 0.85rem;">{{ diff.note }}</p>{% endif %}
+
+{% if not diff.modified and not diff.added and not diff.removed %}
+  <p class="empty" style="padding: 16px;">No differences found. Both versions contain the same clauses.</p>
+{% endif %}
+
+<!-- 1 & 2 & 3. Modified Clauses -->
+{% if diff.modified %}
+<section style="margin-bottom: 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+    <h2 style="font-size: 1.15rem; margin: 0;">Modified Clauses ({{ diff.modified|length }})</h2>
+    <div style="font-size: 0.82rem;">
+      <ins style="background: rgba(16, 185, 129, 0.2); padding: 1px 5px; border-radius: 3px; text-decoration: none;">+ Added text</ins>
+      <del style="background: rgba(239, 68, 68, 0.2); padding: 1px 5px; border-radius: 3px; margin-left: 6px;">- Removed text</del>
+    </div>
+  </div>
+
+  <div style="display: grid; gap: 10px;">
+    {% for m in diff.modified %}
+    <article class="card" style="padding: 12px 16px; border-left: 4px solid #3b82f6;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <h4 style="font-size: 0.96rem; margin: 0; font-weight: 700; color: var(--ink);">{{ m.display_title }}</h4>
+          <span class="muted" style="font-size: 0.78rem;">{{ where(m.new) }}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          {% if m.old_level != m.new_level %}
+          <span style="font-size: 0.78rem;" class="muted">
+            {{ badge(m.old_level) }} &rarr; {{ badge(m.new_level) }}
+          </span>
+          {% endif %}
+          <span class="badge neutral" style="font-size: 0.75rem;">{{ m.similarity }}% match</span>
+        </div>
+      </div>
+
+      <!-- Change Explanation Pill -->
+      {% if m.explanations %}
+      <div style="background: var(--bg-subtle); border-left: 3px solid var(--brand); padding: 6px 10px; border-radius: 4px; margin-bottom: 8px; font-size: 0.84rem;">
+        <span style="font-weight: 700; color: var(--brand);">Change Summary:</span>
+        {% for exp in m.explanations %}
+          <span style="color: var(--ink); margin-left: 4px;">{{ exp }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Side by Side / In-place Word Diff -->
+      <blockquote class="orig" style="font-size: 0.94rem; line-height: 1.5; margin: 0; color: var(--ink);">
+        {% for kind, text in m.segments %}
+          {% if kind == 'ins' %}<ins style="background: rgba(16, 185, 129, 0.25); text-decoration: none; font-weight: 600; padding: 0 3px; border-radius: 2px; color: #065f46;">{{ text }}</ins>
+          {% elif kind == 'del' %}<del style="background: rgba(239, 68, 68, 0.25); opacity: 0.8; padding: 0 3px; border-radius: 2px; color: #991b1b;">{{ text }}</del>
+          {% else %}{{ text }}{% endif %}
+        {% endfor %}
+      </blockquote>
+
+      {{ flags(m.reasons) }}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- Added Clauses -->
+{% if diff.added %}
+<section style="margin-bottom: 20px;">
+  <h2 style="font-size: 1.15rem; margin-bottom: 10px;">Added in Newer Version ({{ diff.added|length }})</h2>
+  <div style="display: grid; gap: 10px;">
+    {% for a in diff.added %}
+    <article class="card" style="padding: 12px 16px; border-left: 4px solid var(--ok);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h4 style="font-size: 0.96rem; margin: 0; font-weight: 700;">{{ a.display_title }}</h4>
+          <span class="muted" style="font-size: 0.78rem;">{{ where(a.clause) }}</span>
+        </div>
+        <div>
+          {% if a.level %}{{ badge(a.level) }}{% else %}<span class="badge" style="background: var(--ok-bg); color: var(--ok); font-size: 0.75rem;">New</span>{% endif %}
+        </div>
+      </div>
+
+      {% if a.significance %}
+      <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid var(--ok); padding: 5px 10px; border-radius: 4px; margin-bottom: 6px; font-size: 0.82rem; color: var(--ink);">
+        <strong>Implication:</strong> {{ a.significance }}
+      </div>
+      {% endif %}
+
+      <blockquote class="orig" style="margin: 0; font-size: 0.92rem; line-height: 1.5; color: var(--ink);"><ins style="text-decoration: none;">{{ a.clause.text }}</ins></blockquote>
+      {{ flags(a.reasons) }}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- Removed Clauses -->
+{% if diff.removed %}
+<section style="margin-bottom: 20px;">
+  <h2 style="font-size: 1.15rem; margin-bottom: 10px;">Removed from Older Version ({{ diff.removed|length }})</h2>
+  <div style="display: grid; gap: 10px;">
+    {% for r in diff.removed %}
+    <article class="card" style="padding: 12px 16px; border-left: 4px solid var(--high);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h4 style="font-size: 0.96rem; margin: 0; font-weight: 700;">{{ r.display_title }}</h4>
+          <span class="muted" style="font-size: 0.78rem;">{{ where(r.clause) }}</span>
+        </div>
+        <div>
+          {% if r.level %}{{ badge(r.level) }}{% else %}<span class="badge" style="background: var(--high-bg); color: var(--high); font-size: 0.75rem;">Removed</span>{% endif %}
+        </div>
+      </div>
+
+      {% if r.significance %}
+      <div style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid var(--high); padding: 5px 10px; border-radius: 4px; margin-bottom: 6px; font-size: 0.82rem; color: var(--ink);">
+        <strong>Implication:</strong> {{ r.significance }}
+      </div>
+      {% endif %}
+
+      <blockquote class="orig" style="margin: 0; font-size: 0.92rem; line-height: 1.5; color: var(--muted);"><del>{{ r.clause.text }}</del></blockquote>
+      {{ flags(r.reasons) }}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div style="margin-top: 20px; display: flex; gap: 10px;">
+  <a class="btn primary sm" href="{{ url_for('compare') }}">Compare other files</a>
+  <a class="btn sm" href="{{ url_for('dashboard') }}">Dashboard</a>
+</div>
+{% endblock %}

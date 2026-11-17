@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Settings - DocumentIQ{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h1>Workspace Settings</h1>
+  <p class="muted">Configure security preferences and rule engine detection boundaries.</p>
+</div>
+
+<div class="card" style="max-width: 680px;">
+  <h2>Analysis Preferences</h2>
+  <div style="margin-top: 18px; display: grid; gap: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--line);">
+      <div>
+        <div style="font-weight: 600;">In-Memory File Processing</div>
+        <div class="muted" style="font-size: 0.88rem;">Ensure uploaded documents are cleared immediately from memory after analysis</div>
+      </div>
+      <div><span class="badge" style="background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok);">Enforced</span></div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--line);">
+      <div>
+        <div style="font-weight: 600;">Negation Handling Filter</div>
+        <div class="muted" style="font-size: 0.88rem;">Reverse severity when clauses contain explicit negation ("does not renew")</div>
+      </div>
+      <div><span class="badge" style="background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok);">Active</span></div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div style="font-weight: 600;">Audit Log Redaction</div>
+        <div class="muted" style="font-size: 0.88rem;">Sanitize sensitive names when generating external PDF reports</div>
+      </div>
+      <div><span class="badge neutral">Standard</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

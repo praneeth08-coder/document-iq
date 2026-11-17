@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "macros.html" import dropzone %}
+{% block title %}Compare Versions - DocumentIQ{% endblock %}
+{% block page_title %}Version Compare{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Compare two versions</h1>
+  <p class="lead">Upload the older and the newer version. Clauses are matched one by one, so you see what was added, removed or reworded.</p>
+</section>
+<form class="card compare-form" method="post" action="{{ url_for('compare') }}" enctype="multipart/form-data" data-upload>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="two">
+    <div><h2>Older version</h2>{{ dropzone("old_doc", "old_doc", "Drop the older file", "PDF, DOC, DOCX or TXT") }}</div>
+    <div><h2>Newer version</h2>{{ dropzone("new_doc", "new_doc", "Drop the newer file", "PDF, DOC, DOCX or TXT") }}</div>
+  </div>
+  <p class="dz-error" role="alert" {% if not error %}hidden{% endif %}>{{ error }}</p>
+  <button class="btn primary" type="submit"><span class="btn-label">Compare versions</span></button>
+  <p class="fine">Comparisons are not saved. Each file can be up to 10 MB.</p>
+</form>
+{% endblock %}

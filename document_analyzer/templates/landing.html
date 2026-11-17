@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DocumentIQ - Intelligent Contract & Document Risk Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;850&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>
+    (function() {
+      var saved = localStorage.getItem('docanalyzer_theme');
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'dark' || (!saved && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body class="landing-body">
+
+<header class="landing-nav">
+  <div class="landing-nav-wrap">
+    <a href="{{ url_for('landing') }}" class="brand-link" style="color: var(--ink);">
+      <div class="brand-logo-icon">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </div>
+      <span>DocumentIQ</span>
+    </a>
+
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg class="sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+      <a href="{{ url_for('dashboard') }}" class="btn">Dashboard</a>
+      <a href="{{ url_for('index') }}" class="btn primary">Launch App</a>
+    </div>
+  </div>
+</header>
+
+<section class="landing-hero">
+  <div class="hero-badge">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+    <span>Enterprise Grade Contract Intelligence</span>
+  </div>
+  <h1>Know what you are agreeing to before you sign.</h1>
+  <p class="lead">DocumentIQ flags high-risk legal clauses, parses hidden deadlines & payment schedules, and compares redlines with zero cloud leakage.</p>
+  
+  <div class="hero-ctas">
+    <a href="{{ url_for('index') }}" class="btn primary" style="padding: 12px 26px; font-size: 1rem;">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+      <span>Analyze Document Now</span>
+    </a>
+    <a href="{{ url_for('compare') }}" class="btn" style="padding: 12px 26px; font-size: 1rem;">Compare Two Versions</a>
+  </div>
+</section>
+
+<section class="landing-features">
+  <div class="feat-card">
+    <div class="feat-icon">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+    </div>
+    <h3>Automated Risk Scoring</h3>
+    <p>Detect automatic rollovers, unilateral amendment clauses, unlimited liabilities, and hidden dispute restrictions categorized as High, Medium, or Low risk.</p>
+  </div>
+
+  <div class="feat-card">
+    <div class="feat-icon">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    </div>
+    <h3>Obligation & Notice Extraction</h3>
+    <p>Never miss a cutoff. DocumentIQ parses explicit cancellation notice windows, deposits, and recurring payment deadlines from PDF, DOCX, and TXT files.</p>
+  </div>
+
+  <div class="feat-card">
+    <div class="feat-icon">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+    </div>
+    <h3>Privacy First & In-Memory</h3>
+    <p>Your contracts stay strictly within your private session memory. No data is shared with external third-party LLMs or monetization APIs.</p>
+  </div>
+</section>
+
+<footer class="foot" style="margin-top: auto;">
+  <p>&copy; DocumentIQ Enterprise Intelligence. Built for accuracy, security, and contract transparency.</p>
+</footer>
+
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>

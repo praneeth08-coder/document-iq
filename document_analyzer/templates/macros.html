@@ -1,0 +1,35 @@
+{% macro dropzone(id, name, title, sub) %}
+<label class="dropzone" for="{{ id }}">
+  <input id="{{ id }}" name="{{ name }}" type="file" accept=".pdf,.docx,.txt" required>
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 16V5m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <span class="dz-title">{{ title }}</span>
+  <span class="dz-sub">{{ sub }}</span>
+  <span class="dz-file" hidden></span>
+</label>
+{% endmacro %}
+
+{% macro badge(level) %}<span class="badge {{ level|slug }}">{{ level }}</span>{% endmacro %}
+
+{% macro where(item) %}
+  {% if item.page %}<span>Page {{ item.page }}</span>{% endif %}
+  {% if item.ref %}<span>Clause {{ item.ref }}</span>{% endif %}
+  {% if not item.page and not item.ref %}<span>Not numbered</span>{% endif %}
+{% endmacro %}
+
+{% macro recent_table(rows) %}
+<div class="table-scroll">
+<table class="table">
+  <thead><tr><th>File</th><th>Analysed</th><th>Attention</th><th><span class="sr">Actions</span></th></tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="fname">{{ row.filename }}</td>
+      <td>{{ row.created_at }}</td>
+      <td>{{ badge(row.level) }} <span class="muted">{{ row.score }}/100</span></td>
+      <td class="right"><a class="link" href="{{ url_for('analysis', analysis_id=row.id) }}">Open</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}

@@ -1,0 +1,198 @@
+﻿{% extends "base.html" %}
+{% from "macros.html" import badge %}
+{% block title %}Report Preview - {{ rep.title }} - DocumentIQ{% endblock %}
+{% block page_title %}Report Preview{% endblock %}
+
+{% block content %}
+<!-- 4. Report Preview Toolbar -->
+<div class="card" style="margin-bottom: 24px; position: sticky; top: 70px; z-index: 15; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+    <div>
+      <h2 style="font-size: 1.2rem; margin: 0;">{{ rep.title }}</h2>
+      <p class="muted" style="font-size: 0.85rem;">Generated: {{ rep.created_at }} &bull; Format: {{ rep.format }}</p>
+    </div>
+
+    <!-- Preview Controls: Page Nav, Zoom, Print, Back, Download -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px;">
+        <button type="button" class="btn sm" id="zoomOut" title="Zoom Out">-</button>
+        <span id="zoomLevel" style="font-size: 0.82rem; font-weight: 600; min-width: 42px; text-align: center;">100%</span>
+        <button type="button" class="btn sm" id="zoomIn" title="Zoom In">+</button>
+      </div>
+
+      <button type="button" class="btn sm" onclick="window.print()" title="Print or Save as PDF">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        <span>Print</span>
+      </button>
+
+      <a href="{{ url_for('reports') }}" class="btn sm" title="Return to Report Customization">
+        &larr; Back to Customization
+      </a>
+
+      <a href="{{ url_for('reports_download_pdf', report_id=rep.id) }}" class="btn primary sm" title="Download official PDF report">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>Download PDF</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Interactive Document Paper / Preview Canvas -->
+<div id="previewContainer" style="display: flex; justify-content: center; padding: 20px 0; overflow-x: auto;">
+  <div id="reportSheet" class="card" style="width: 100%; max-width: 860px; padding: 48px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); transition: transform 0.15s ease; transform-origin: top center;">
+    
+    <!-- Header Banner -->
+    <div style="border-bottom: 2px solid var(--brand); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <div style="font-size: 0.82rem; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">DocumentIQ Formal Audit</div>
+        <h1 style="font-size: 1.8rem; margin: 0;">{{ rep.title }}</h1>
+        <p class="muted" style="font-size: 0.9rem; margin-top: 4px;">{{ options.org_name or 'Enterprise Portfolio' }} &bull; Prepared by {{ options.prepared_by or 'Legal Operations' }}</p>
+      </div>
+      <div style="text-align: right;">
+        <span class="badge" style="background: var(--brand-soft); color: var(--brand); font-size: 0.88rem;">{{ rep.report_type }}</span>
+        <div class="muted" style="font-size: 0.82rem; margin-top: 6px;">Date: {{ options.reporting_date or rep.created_at }}</div>
+      </div>
+    </div>
+
+    <!-- Executive Summary -->
+    {% if options.inc_exec_summary %}
+    <div style="margin-bottom: 28px;">
+      <h3 style="font-size: 1.15rem; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 12px;">1. Executive Summary</h3>
+      <p style="font-size: 0.95rem; line-height: 1.6; color: var(--ink);">
+        This audit examines <strong>{{ stats.total_docs }}</strong> selected contractual agreement{{ 's' if stats.total_docs != 1 else '' }}. Across the audited documents, our deterministic legal rule engine flagged <strong>{{ stats.total_high }} High Attention</strong> liabilities and <strong>{{ stats.total_medium }} Medium Attention</strong> exposure areas.
+      </p>
+    </div>
+    {% endif %}
+
+    <!-- Attention Score / Portfolio Posture -->
+    {% if options.inc_risk_score %}
+    <div style="margin-bottom: 28px;">
+      <h3 style="font-size: 1.15rem; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 12px;">2. Risk Attention Score</h3>
+      <div style="display: flex; gap: 20px; align-items: center; background: var(--bg-subtle); padding: 18px 24px; border-radius: 10px;">
+        <div style="font-size: 2.4rem; font-weight: 800; color: var(--brand); line-height: 1;">{{ stats.avg_score }}<span style="font-size: 1.1rem; color: var(--muted); font-weight: 500;">/100</span></div>
+        <div>
+          <div style="font-weight: 700; font-size: 1rem;">Aggregate Risk Index</div>
+          <div class="muted" style="font-size: 0.85rem;">Computed from weighted liability clause flags across all included documents.</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Document Information & Findings Breakdown -->
+    {% if options.inc_doc_info or options.inc_findings %}
+    <div style="margin-bottom: 28px;">
+      <h3 style="font-size: 1.15rem; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 12px;">3. Analyzed Documents &amp; Severity Breakdown</h3>
+      <div class="table-scroll">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Score</th>
+              <th>High Risk</th>
+              <th>Medium Risk</th>
+              <th>Low Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in docs %}
+            <tr>
+              <td style="font-weight: 600;">{{ d.filename }}</td>
+              <td><b>{{ d.score }}</b> / 100</td>
+              <td><span style="color: var(--high); font-weight: 700;">{{ d.high }}</span></td>
+              <td><span style="color: var(--medium); font-weight: 700;">{{ d.medium }}</span></td>
+              <td><span style="color: var(--low); font-weight: 700;">{{ d.low }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Flagged Clauses & Explanations -->
+    {% if options.inc_clauses %}
+    <div style="margin-bottom: 28px;">
+      <h3 style="font-size: 1.15rem; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 12px;">4. Flagged Provisions &amp; Analysis</h3>
+      {% for d in docs %}
+        {% if d.flagged %}
+        <div style="margin-bottom: 16px;">
+          <h4 style="font-size: 0.98rem; color: var(--brand); margin-bottom: 8px;">File: {{ d.filename }}</h4>
+          <ul style="list-style: none; padding: 0; display: grid; gap: 8px;">
+            {% for c in d.flagged[:4] %}
+            <li style="padding: 10px 14px; background: var(--bg-subtle); border-radius: 6px; font-size: 0.9rem;">
+              <span class="badge {{ c.level|slug }}" style="font-size: 0.75rem; margin-right: 6px;">{{ c.level }}</span>
+              <span style="font-weight: 600;">{{ c.reasons[0].title if c.reasons else 'Risk provision' }}</span>
+              <p class="muted" style="margin-top: 4px; font-size: 0.85rem;">{{ c.reasons[0].explanation if c.reasons else '' }}</p>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Extracted Obligations / Financial / Deadlines -->
+    {% if options.inc_obligations or options.inc_financial or options.inc_deadlines %}
+    <div style="margin-bottom: 28px;">
+      <h3 style="font-size: 1.15rem; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 12px;">5. Extracted Obligations &amp; Deadlines</h3>
+      {% if obligations %}
+      <div class="table-scroll">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Type</th>
+              <th>Detail</th>
+              <th>Timing</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ob in obligations[:10] %}
+            <tr>
+              <td class="muted">{{ ob.doc }}</td>
+              <td><b>{{ ob.type }}</b></td>
+              <td>{{ ob.detail }}</td>
+              <td>{{ ob.when or 'As stipulated in agreement' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="muted">No specific payment or notice schedule obligations found in selected contracts.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Report Disclaimer Footer -->
+    <div style="margin-top: 40px; padding-top: 16px; border-top: 1px dashed var(--line); font-size: 0.8rem; color: var(--muted); text-align: center;">
+      This report is informational and produced deterministically by DocumentIQ. It assists review but is not official legal counsel.
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var zoom = 100;
+  var sheet = document.getElementById('reportSheet');
+  var zoomLevel = document.getElementById('zoomLevel');
+
+  document.getElementById('zoomIn').addEventListener('click', function() {
+    if (zoom < 140) {
+      zoom += 10;
+      sheet.style.transform = 'scale(' + (zoom / 100) + ')';
+      zoomLevel.textContent = zoom + '%';
+    }
+  });
+
+  document.getElementById('zoomOut').addEventListener('click', function() {
+    if (zoom > 70) {
+      zoom -= 10;
+      sheet.style.transform = 'scale(' + (zoom / 100) + ')';
+      zoomLevel.textContent = zoom + '%';
+    }
+  });
+});
+</script>
+{% endblock %}

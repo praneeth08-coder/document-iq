@@ -1,0 +1,414 @@
+﻿{% extends "base.html" %}
+{% from "macros.html" import badge %}
+{% block title %}Reports Center - DocumentIQ{% endblock %}
+{% block page_title %}Reports Center{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 28px;">
+  <h1>Enterprise Reports Center</h1>
+  <p class="muted">Generate customized compliance audits, portfolio risk breakdowns, and export records.</p>
+</div>
+
+<form method="post" action="{{ url_for('reports_generate') }}" id="reportForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <!-- 1. Report Generator (Main Feature at Top) -->
+  <section class="card" style="margin-bottom: 24px; border-left: 5px solid var(--brand);">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+      <div style="width: 36px; height: 36px; border-radius: 8px; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; font-weight: 800;">1</div>
+      <div>
+        <h2 style="font-size: 1.25rem;">Report Generator</h2>
+        <p class="muted" style="font-size: 0.9rem;">Choose what kind of report you want to create.</p>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 14px;">
+      <label class="report-type-card">
+        <input type="radio" name="report_type" value="Complete Document Analysis Report" checked>
+        <div class="rtc-content">
+          <div class="rtc-title">Complete Document Analysis</div>
+          <div class="rtc-desc">Comprehensive analysis covering all clauses, severity scores, and negotiation tips.</div>
+        </div>
+      </label>
+
+      <label class="report-type-card">
+        <input type="radio" name="report_type" value="Portfolio Report (multiple documents)">
+        <div class="rtc-content">
+          <div class="rtc-title">Portfolio Report</div>
+          <div class="rtc-desc">Multi-document aggregate risk exposure and repository liability metrics.</div>
+        </div>
+      </label>
+
+      <label class="report-type-card">
+        <input type="radio" name="report_type" value="Risk Findings Report">
+        <div class="rtc-content">
+          <div class="rtc-title">Risk Findings Report</div>
+          <div class="rtc-desc">Focused exclusively on High and Medium flagged liabilities and indemnities.</div>
+        </div>
+      </label>
+
+      <label class="report-type-card">
+        <input type="radio" name="report_type" value="Financial Obligations Report">
+        <div class="rtc-content">
+          <div class="rtc-title">Financial Obligations Report</div>
+          <div class="rtc-desc">Fee commitments, payment schedules, deposits, and penalty surcharges.</div>
+        </div>
+      </label>
+
+      <label class="report-type-card">
+        <input type="radio" name="report_type" value="Deadlines & Renewal Report">
+        <div class="rtc-content">
+          <div class="rtc-title">Deadlines &amp; Renewal Report</div>
+          <div class="rtc-desc">Notice windows, evergreen opt-out deadlines, and renewal milestones.</div>
+        </div>
+      </label>
+
+      <label class="report-type-card">
+        <input type="radio" name="report_type" value="Document Comparison Report">
+        <div class="rtc-content">
+          <div class="rtc-title">Document Comparison Report</div>
+          <div class="rtc-desc">Version redline variance and clause-by-clause difference breakdown.</div>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <!-- 2. Document Selection -->
+  <section class="card" style="margin-bottom: 24px; border-left: 5px solid #0284c7;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(2, 132, 199, 0.15); color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 800;">2</div>
+        <div>
+          <h2 style="font-size: 1.25rem;">Document Selection</h2>
+          <p class="muted" style="font-size: 0.9rem;">Choose which analyzed documents to include in the report.</p>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span class="badge" id="selectedCountBadge" style="font-size: 0.88rem; padding: 6px 14px; background: var(--brand-soft); color: var(--brand);">0 documents selected</span>
+      </div>
+    </div>
+
+    <!-- Filters & Select All Toolbar -->
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; padding: 12px 16px; background: var(--bg-subtle); border-radius: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn sm" id="btnSelectAll">Select All</button>
+        <button type="button" class="btn sm" id="btnDeselectAll">Deselect All</button>
+      </div>
+
+      <div style="flex: 1; min-width: 200px;">
+        <input type="search" id="docSearch" placeholder="Search by document name..." style="width: 100%; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line); font-size: 0.88rem;">
+      </div>
+
+      <div>
+        <select id="docTypeFilter" style="padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line); font-size: 0.88rem;">
+          <option value="all">All Formats</option>
+          <option value="pdf">PDF</option>
+          <option value="docx">DOCX / DOC</option>
+          <option value="txt">TXT</option>
+        </select>
+      </div>
+    </div>
+
+    {% if docs %}
+    <div class="table-scroll">
+      <table class="table" id="docSelectTable">
+        <thead>
+          <tr>
+            <th style="width: 44px; text-align: center;"><input type="checkbox" id="masterCheckbox"></th>
+            <th>Document Name</th>
+            <th>Format</th>
+            <th>Analysis Date</th>
+            <th>Attention Score</th>
+            <th>Severity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in docs %}
+          <tr class="doc-row" data-name="{{ d.filename|lower }}" data-type="{{ d.file_type|lower }}" data-date="{{ d.created_at }}">
+            <td style="text-align: center;">
+              <input type="checkbox" name="doc_ids" value="{{ d.id }}" class="doc-check" {% if loop.first %}checked{% endif %}>
+            </td>
+            <td style="font-weight: 600;">{{ d.filename }}</td>
+            <td class="muted">{{ d.file_type|upper }}</td>
+            <td class="muted">{{ d.created_at }}</td>
+            <td><b>{{ d.score }}</b> / 100</td>
+            <td>{{ badge(d.level) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <p>No analyzed documents available. Analyze a contract in the workspace first.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- 3. Report Customization -->
+  <section class="card" style="margin-bottom: 24px; border-left: 5px solid #8b5cf6;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+      <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(139, 92, 246, 0.15); color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-weight: 800;">3</div>
+      <div>
+        <h2 style="font-size: 1.25rem;">Report Customization</h2>
+        <p class="muted" style="font-size: 0.9rem;">Choose what information to include and configure metadata.</p>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+      <div class="form-group">
+        <label for="report_title" style="font-weight: 600; font-size: 0.88rem;">Report Title</label>
+        <input type="text" id="report_title" name="report_title" value="Executive Contract Risk Audit">
+      </div>
+      <div class="form-group">
+        <label for="reporting_date" style="font-weight: 600; font-size: 0.88rem;">Reporting Date</label>
+        <input type="date" id="reporting_date" name="reporting_date">
+      </div>
+      <div class="form-group">
+        <label for="org_name" style="font-weight: 600; font-size: 0.88rem;">Organization Name (Optional)</label>
+        <input type="text" id="org_name" name="org_name" value="{{ current_user.company or 'DocumentIQ Enterprise' }}">
+      </div>
+      <div class="form-group">
+        <label for="prepared_by" style="font-weight: 600; font-size: 0.88rem;">Prepared By (Optional)</label>
+        <input type="text" id="prepared_by" name="prepared_by" value="{{ current_user.full_name or 'Legal Operations' }}">
+      </div>
+    </div>
+
+    <h3 style="font-size: 1rem; margin-bottom: 12px;">Include Content Options:</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;">
+      <label class="check"><input type="checkbox" name="inc_exec_summary" checked> <span>Executive Summary</span></label>
+      <label class="check"><input type="checkbox" name="inc_doc_info" checked> <span>Document Information</span></label>
+      <label class="check"><input type="checkbox" name="inc_risk_score" checked> <span>Risk Attention Score</span></label>
+      <label class="check"><input type="checkbox" name="inc_findings" checked> <span>High, Medium and Low Findings</span></label>
+      <label class="check"><input type="checkbox" name="inc_clauses" checked> <span>Flagged Clauses &amp; Explanations</span></label>
+      <label class="check"><input type="checkbox" name="inc_recommendations" checked> <span>Negotiation Recommendations</span></label>
+      <label class="check"><input type="checkbox" name="inc_obligations" checked> <span>Extracted Obligations</span></label>
+      <label class="check"><input type="checkbox" name="inc_financial" checked> <span>Financial Terms &amp; Penalties</span></label>
+      <label class="check"><input type="checkbox" name="inc_deadlines" checked> <span>Deadlines &amp; Renewal Terms</span></label>
+      <label class="check"><input type="checkbox" name="inc_comparisons" checked> <span>Document Comparison Results</span></label>
+    </div>
+  </section>
+
+  <!-- 4. Report Preview & 5. Export Center (Action Bar) -->
+  <section class="card" style="margin-bottom: 32px; border-left: 5px solid var(--ok); background: var(--bg-subtle);">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;">
+      <div>
+        <h2 style="font-size: 1.25rem;">4. Report Preview &amp; 5. Export Center</h2>
+        <p class="muted" style="font-size: 0.9rem;">Preview customized document audits before downloading formal PDF reports.</p>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <input type="hidden" name="export_format" value="PDF">
+        <span class="badge" style="background: var(--brand-soft); color: var(--brand); font-size: 0.88rem; padding: 7px 14px;">
+          Format: PDF Formal Report
+        </span>
+
+        <button type="submit" class="btn primary" style="padding: 10px 24px; font-size: 0.95rem;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          <span>Generate &amp; Preview Report</span>
+        </button>
+      </div>
+    </div>
+  </section>
+</form>
+
+<!-- 6. Generated Reports History & 7. Report Management -->
+<section class="card" style="border-left: 5px solid #f59e0b;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 14px;">
+    <div>
+      <h2 style="font-size: 1.25rem;">6. Generated Reports History &amp; 7. Report Management</h2>
+      <p class="muted" style="font-size: 0.9rem;">View, rename, redownload, or delete previously generated reports.</p>
+    </div>
+    <div>
+      <input type="search" id="historySearch" placeholder="Filter report history..." style="padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line); font-size: 0.88rem;">
+    </div>
+  </div>
+
+  {% if history %}
+  <div class="table-scroll">
+    <table class="table" id="historyTable">
+      <thead>
+        <tr>
+          <th>Report Name</th>
+          <th>Report Type</th>
+          <th>Documents Included</th>
+          <th>Generated On</th>
+          <th>Format</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr class="hist-row" data-title="{{ h.title|lower }}" data-type="{{ h.report_type|lower }}">
+          <td style="font-weight: 600;">
+            <span id="titleText-{{ h.id }}">{{ h.title }}</span>
+            <!-- Inline rename form -->
+            <form method="post" action="{{ url_for('reports_rename', report_id=h.id) }}" id="renameForm-{{ h.id }}" style="display: none; margin-top: 4px;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div style="display: flex; gap: 6px;">
+                <input type="text" name="title" value="{{ h.title }}" style="padding: 4px 8px; font-size: 0.85rem; border: 1px solid var(--brand); border-radius: 4px;">
+                <button type="submit" class="btn sm primary">Save</button>
+                <button type="button" class="btn sm" onclick="toggleRename({{ h.id }})">Cancel</button>
+              </div>
+            </form>
+          </td>
+          <td><span class="chip" style="font-size: 0.8rem; background: var(--bg-subtle);">{{ h.report_type }}</span></td>
+          <td><b>{{ h.doc_count }}</b> document{{ 's' if h.doc_count != 1 else '' }}</td>
+          <td class="muted">{{ h.created_at }}</td>
+          <td><span class="badge" style="background: var(--brand-soft); color: var(--brand);">{{ h.format }}</span></td>
+          <td style="text-align: right;">
+            <div style="display: inline-flex; gap: 6px; align-items: center;">
+              <a href="{{ url_for('reports_preview', report_id=h.id) }}" class="btn sm" title="Preview report">View</a>
+              <a href="{{ url_for('reports_download_pdf', report_id=h.id) }}" class="btn sm primary" title="Download PDF">PDF</a>
+              <button type="button" class="btn sm" onclick="toggleRename({{ h.id }})" title="Rename report">Rename</button>
+              <form method="post" action="{{ url_for('reports_delete', report_id=h.id) }}" data-confirm="Delete this generated report from history?" style="margin: 0; display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn sm" style="color: var(--high);">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <p>No reports generated yet. Configure options above and click "Generate &amp; Preview Report".</p>
+  </div>
+  {% endif %}
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Set default today date
+  var dateInput = document.getElementById('reporting_date');
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+
+  // Document selection counters and select all/none
+  var masterCb = document.getElementById('masterCheckbox');
+  var docChecks = Array.from(document.querySelectorAll('.doc-check'));
+  var countBadge = document.getElementById('selectedCountBadge');
+
+  function updateCount() {
+    var checked = docChecks.filter(function(c) { return c.checked; }).length;
+    if (countBadge) {
+      countBadge.textContent = checked + ' document' + (checked === 1 ? '' : 's') + ' selected';
+    }
+  }
+
+  if (masterCb) {
+    masterCb.addEventListener('change', function() {
+      docChecks.forEach(function(c) { c.checked = masterCb.checked; });
+      updateCount();
+    });
+  }
+
+  docChecks.forEach(function(c) {
+    c.addEventListener('change', updateCount);
+  });
+
+  var btnAll = document.getElementById('btnSelectAll');
+  if (btnAll) {
+    btnAll.addEventListener('click', function() {
+      docChecks.forEach(function(c) { c.checked = true; });
+      if (masterCb) masterCb.checked = true;
+      updateCount();
+    });
+  }
+
+  var btnNone = document.getElementById('btnDeselectAll');
+  if (btnNone) {
+    btnNone.addEventListener('click', function() {
+      docChecks.forEach(function(c) { c.checked = false; });
+      if (masterCb) masterCb.checked = false;
+      updateCount();
+    });
+  }
+
+  // Document search & format filter
+  var docSearch = document.getElementById('docSearch');
+  var typeFilter = document.getElementById('docTypeFilter');
+  var docRows = Array.from(document.querySelectorAll('.doc-row'));
+
+  function filterDocs() {
+    var q = docSearch ? docSearch.value.toLowerCase().trim() : '';
+    var type = typeFilter ? typeFilter.value.toLowerCase() : 'all';
+
+    docRows.forEach(function(row) {
+      var name = row.getAttribute('data-name') || '';
+      var docType = row.getAttribute('data-type') || '';
+      var matchesQ = !q || name.indexOf(q) !== -1;
+      var matchesT = type === 'all' || docType.indexOf(type) !== -1;
+      row.style.display = (matchesQ && matchesT) ? '' : 'none';
+    });
+  }
+
+  if (docSearch) docSearch.addEventListener('input', filterDocs);
+  if (typeFilter) typeFilter.addEventListener('change', filterDocs);
+
+  // History search filter
+  var histSearch = document.getElementById('historySearch');
+  var histRows = Array.from(document.querySelectorAll('.hist-row'));
+  if (histSearch) {
+    histSearch.addEventListener('input', function() {
+      var q = histSearch.value.toLowerCase().trim();
+      histRows.forEach(function(r) {
+        var title = r.getAttribute('data-title') || '';
+        var t = r.getAttribute('data-type') || '';
+        r.style.display = (!q || title.indexOf(q) !== -1 || t.indexOf(q) !== -1) ? '' : 'none';
+      });
+    });
+  }
+
+  updateCount();
+});
+
+function toggleRename(id) {
+  var form = document.getElementById('renameForm-' + id);
+  var text = document.getElementById('titleText-' + id);
+  if (!form || !text) return;
+  if (form.style.display === 'none' || form.style.display === '') {
+    form.style.display = 'block';
+    text.style.display = 'none';
+  } else {
+    form.style.display = 'none';
+    text.style.display = 'inline';
+  }
+}
+</script>
+
+<style>
+.report-type-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.report-type-card:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.report-type-card input[type="radio"] {
+  margin-top: 4px;
+}
+.rtc-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+.rtc-desc {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+</style>
+{% endblock %}
