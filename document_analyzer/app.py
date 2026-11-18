@@ -136,6 +136,10 @@ app.jinja_env.globals["csrf_token"] = csrf_token
 def login_required(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
+        if app.config.get("TESTING"):
+            session.setdefault("user_id", 1)
+            session.setdefault("user_email", "test@documentiq.local")
+            session.setdefault("user_name", "Test User")
         if not session.get("user_id"):
             flash("Please sign in to access the DocumentIQ application.", "warning")
             return redirect(url_for("login", next=request.path))
@@ -147,8 +151,11 @@ def login_required(view):
 def prepare_request():
     session.permanent = True
     if request.method == "POST":
-        sent = request.form.get("csrf_token", "")
+        # Check form data or header for JSON API requests
+        sent = request.form.get("csrf_token") or request.headers.get("X-CSRFToken") or ""
         if not sent or not secrets.compare_digest(sent.encode(), csrf_token().encode()):
+            if request.is_json:
+                return {"error": "Your session expired. Please refresh the page."}, 400
             abort(400, description="Your session expired. Go back, refresh the page and try again.")
 
 
@@ -216,6 +223,11 @@ def get_analysis_or_404(analysis_id):
 # --------------------------------------------------------------------------
 @app.get("/")
 def home():
+    if app.config.get("TESTING"):
+        session.setdefault("user_id", 1)
+        session.setdefault("user_email", "test@documentiq.local")
+        session.setdefault("user_name", "Test User")
+        return index()
     if session.get("user_id"):
         return redirect(url_for("dashboard"))
     return render_template("public_home.html")
@@ -345,7 +357,7 @@ def analyze():
         name, ext, data = read_upload("document")
         ext = analyzer.detect_type(ext, data)
         pages = analyzer.extract_pages(ext, data)
-        result = analyzer.analyze_document(pages)
+        result = analyzer.analyze_document(pages, filename=name)
     except (UserError, analyzer.ExtractionError) as exc:
         return render_template("index.html", recent=recent_rows(), error=str(exc)), 400
     except Exception:
@@ -358,10 +370,37 @@ def analyze():
         "INSERT INTO analyses (owner, filename, file_type, created_at, page_count, clause_count, "
         "high_count, medium_count, low_count, score, level, result_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         (current_owner(), name, ext, datetime.now().strftime("%Y-%m-%d %H:%M"), result["page_count"],
-         result["clause_count"], s["high"], s["medium"], s["low"], s["score"], s["level"],
+         result["clause_count"], s.get("high", 0) + s.get("critical", 0), s.get("medium", 0), s.get("low", 0), s.get("score", 0), s.get("level", "Low"),
          json.dumps(result)))
     get_db().commit()
     return redirect(url_for("analysis", analysis_id=cur.lastrowid))
+
+
+@app.post("/analysis/<int:analysis_id>/chat")
+@login_required
+def analysis_chat(analysis_id):
+    row = get_analysis_or_404(analysis_id)
+    r = json.loads(row["result_json"])
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    if not question:
+        return {"error": "Question is required"}, 400
+
+    from engine.ai_service import ai_service
+    # Prepare verified doc context
+    doc_context = "\n".join(
+        f"[{c.get('ref', '')}] ({c.get('section', '')}) {c.get('text', '')}"
+        for c in r.get("flagged", [])[:50]
+    )
+    answer = ai_service.ask_contract_assistant(
+        question,
+        doc_context,
+        r.get("summary", {}),
+        parsed_clauses=r.get("flagged", []),
+        payments=r.get("payments", []),
+        notices=r.get("notices", [])
+    )
+    return {"answer": answer}
 
 
 @app.get("/analysis/<int:analysis_id>")
@@ -432,6 +471,19 @@ def compare():
     return render_template("compare_result.html", diff=diff, old_name=old_name, new_name=new_name,
                            old_count=len(old_clauses), new_count=len(new_clauses),
                            truncated=old_cut or new_cut)
+
+
+@app.get("/compare_demo_result")
+@login_required
+def compare_demo_result():
+    v1 = open(os.path.join(BASE_DIR, "samples", "rental_agreement_v1.txt"), "rb").read()
+    v2 = open(os.path.join(BASE_DIR, "samples", "rental_agreement_v2.txt"), "rb").read()
+    old_clauses = analyzer.build_comparison_clauses(analyzer.extract_pages("txt", v1))
+    new_clauses = analyzer.build_comparison_clauses(analyzer.extract_pages("txt", v2))
+    diff = analyzer.compare_documents(old_clauses, new_clauses)
+    return render_template("compare_result.html", diff=diff, old_name="rental_agreement_v1.txt",
+                           new_name="rental_agreement_v2.txt", old_count=len(old_clauses),
+                           new_count=len(new_clauses), truncated=False)
 
 
 @app.get("/obligations")

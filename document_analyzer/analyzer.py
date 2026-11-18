@@ -19,7 +19,7 @@ SIMILARITY_THRESHOLD = 0.6
 LEVELS = {"High": 3, "Medium": 2, "Low": 1}
 LEVEL_NAMES = {3: "High", 2: "Medium", 1: "Low"}
 CATEGORIES = ["Renewal", "Cancellation", "Refund", "Payment", "Privacy",
-              "Liability", "Disputes", "Changes"]
+              "Liability", "Disputes", "Changes", "Service Level"]
 
 
 class ExtractionError(Exception):
@@ -342,18 +342,34 @@ def build_clauses(pages):
                 continue
             if _is_heading(body):
                 section = (ref + ". " if ref and ref[0].isdigit() else "") + body.rstrip(":").strip()
-                top = [r for r in analyze_clause(body) if r["level"] != "Low"]
-                if not (top and len(body.split()) >= 2):
-                    continue  # a plain heading, not a clause such as "No refunds"
-            for sentence in _sentences(body):
+                # Headings provide section context; only include as clause if standalone directive
+                is_standalone = any(body.strip().lower().startswith(p) for p in ["no refund", "all sales final"])
+                if not is_standalone:
+                    continue
+            sents = _sentences(body)
+            # If the block begins with an inline heading/title (e.g. "1. Scope of Work. Consultant shall...")
+            if len(sents) > 1 and len(sents[0].split()) <= 6 and not any(r["level"] == "High" for r in analyze_clause(sents[0])):
+                # Use first sentence as section title if reasonable
+                first_s = sents[0].rstrip(". :")
+                if len(first_s.split()) <= 5:
+                    section = (ref + ". " if ref and ref[0].isdigit() else "") + first_s
+                    sents = sents[1:]
+            sentence_idx = 0
+            for sentence in sents:
                 n_words = len(sentence.split())
                 if n_words < 2 or (n_words < 3 and not any(
                         r["level"] != "Low" for r in analyze_clause(sentence))):
                     continue  # too short to be a meaningful clause (but keep "No refunds.")
                 if len(clauses) >= MAX_CLAUSES:
                     return clauses, True
-                clauses.append({"id": len(clauses) + 1, "page": page, "ref": ref,
-                                "section": section, "text": sentence})
+                sentence_idx += 1
+                clause_ref = ref
+                if ref:
+                    clause_ref = f"{ref}.{sentence_idx}" if len(sents) > 1 else str(ref)
+                else:
+                    clause_ref = f"§{len(clauses) + 1}"
+                clauses.append({"id": len(clauses) + 1, "page": page, "ref": clause_ref,
+                                "section": section or "General Provisions", "text": sentence})
     return clauses, truncated
 
 
@@ -474,20 +490,42 @@ _add("privacy_mention", "Privacy", "Low", "Privacy or confidentiality",
      "This covers how information is handled. Read it to see what applies to you.",
      [r"\bprivacy\b", r"\bpersonal\s+(?:data|information)\b", r"\bconfidential\w*\b", r"\bdata\s+protection\b"])
 
-_add("liab_limit", "Liability", "High", "Responsibility is limited",
-     "The other party limits or excludes what it will cover if something goes wrong. You may bear the loss yourself.",
+_add("liab_limit", "Liability", "High", "Total exclusion of liability",
+     "The other party disclaims or eliminates all liability, warranty, or damages. You may bear all losses yourself.",
      [r"\b(?:not|no)\s+(?:be\s+)?(?:held\s+)?(?:liable|responsible|accountable)\b", r"\bno\s+liability\b",
       r"\b(?:disclaim\w*|exclud\w*|waive\w*|release\w*)\b[^.]{0,60}\b(?:liabilit\w*|warrant\w*|damages|claims?)\b",
-      r"\b(?:liabilit\w*|damages)\b[^.]{0,60}\b(?:limited\s+to|shall\s+not\s+exceed|capped|not\s+exceed)\b",
-      r"\bin\s+no\s+event\b", r"\bas[- ]is\b", r"\bwithout\s+(?:any\s+)?warrant\w*\b",
-      r"\bat\s+(?:your|the\s+tenant'?s?|the\s+user'?s?|the\s+customer'?s?)\s+own\s+risk\b"])
+      r"\bin\s+no\s+event\s+shall\b", r"\bas[- ]is\b", r"\bwithout\s+(?:any\s+)?warrant\w*\b",
+      r"\bat\s+(?:your|the\s+tenant'?s?|the\s+user'?s?|the\s+customer'?s?)\s+own\s+risk\b"],
+     neg=True)
+_add("liab_cap_low", "Liability", "High", "Unusually low liability cap",
+     "Liability is capped at a nominal, fixed minimal amount (e.g. $100 or 1 month fee) that may not cover real damages.",
+     [r"\b(?:liability|damages)\b[^.]{0,80}\b(?:limited\s+to|capped\s+at|not\s+exceed)\b[^.]{0,30}\b(?:[1-9]\d{0,2}\s*(?:dollars|usd|rupees|inr|euros|eur|pounds|gbp)?|one\s+month|1\s+month)\b",
+      r"\b(?:maximum|total|aggregate)\s+liability\b[^.]{0,60}\b(?:exceed|limited\s+to)\b[^.]{0,30}\b(?:100|50|10|one\s+hundred)\b",
+      r"\b(?:limited\s+to|shall\s+not\s+exceed)\s+(?:the\s+amount\s+of\s+)?(?:\$|USD\s*|INR\s*|Rs\.?\s*)[1-9]\d{0,2}\b"])
+_add("liab_cap", "Liability", "Medium", "Liability is capped",
+     "Liability is limited to a monetary cap (such as fees paid). Check whether the amount is sufficient to cover realistic damages.",
+     [r"\b(?:liabilit\w*|damages)\b[^.]{0,60}\b(?:limited\s+to|shall\s+not\s+exceed|capped|not\s+exceed)\b"])
+_add("liab_unlimited_indemnity", "Liability", "High", "Unlimited or broad indemnification",
+     "You are required to provide broad, un-capped indemnity for any and all claims, including third party actions.",
+     [r"\b(?:indemnif\w*|hold\s+harmless)\b[^.]{0,80}\b(?:without\s+limitation|unlimited|any\s+and\s+all\s+(?:claims|losses|damages|liabilities)|regardless\s+of\s+cause)\b",
+      r"\b(?:defend|indemnify)\b[^.]{0,60}\b(?:against\s+(?:any|all)\s+claims\b[^.]{0,40}\b(?:howsoever\s+caused|arising\s+from\s+any\s+cause))\b"])
 _add("liab_indemnity", "Liability", "High", "You may have to cover the other party's losses",
      "An indemnity clause can make you pay for the other party's losses or legal costs.",
      [r"\bindemnif\w*", r"\bhold\w*\s+(?:\w+\s+){0,2}harmless\b",
       r"\bresponsible\s+for\s+(?:all|any)\s+(?:losses|costs|damages|claims|expenses)\b"])
 _add("liab_mention", "Liability", "Medium", "Who is responsible",
      "This describes who is responsible if something goes wrong. Check whether it is balanced.",
-     [r"\bliab(?:le|ility|ilities)\b", r"\bdamages\b", r"\bwarrant(?:y|ies)\b"])
+     [r"\bliab(?:le|ility|ilities)\b", r"\bdamages\b", r"\bwarrant(?:y|ies)\b"],
+     neg=True)
+
+_add("service_downtime", "Service Level", "High", "Service availability and downtime disclaimer",
+     "The provider disclaims service availability, uptime guarantees, or liability for system downtime and outages.",
+     [r"\b(?:no\s+guarantee|not\s+guarantee\w*|does\s+not\s+warrant)\b[^.]{0,60}\b(?:uninterrupted|error[- ]free|continuous|availability|uptime)\b",
+      r"\b(?:downtime|outage|service\s+interruption)s?\b[^.]{0,60}\b(?:without\s+liability|no\s+liability|not\s+be\s+liable|sole\s+remedy)\b",
+      r"\b(?:sla|uptime)\b[^.]{0,60}\b(?:not\s+provided|no\s+service\s+credits?|no\s+warranty)\b"])
+_add("service_sla", "Service Level", "Medium", "Service level or uptime mentioned",
+     "Service availability, uptime targets, or maintenance schedules are defined here.",
+     [r"\b(?:service\s+level|uptime|availability|downtime|scheduled\s+maintenance)\b"])
 
 _add("dispute", "Disputes", "High", "Limits on how disputes are handled",
      "Disputes may have to go to private arbitration or a set court, and some legal rights may be waived.",
@@ -507,13 +545,16 @@ _add("change_right", "Changes", "Medium", "Right to change terms",
 NEGATED_PLAIN = ("The sentence seems to say the opposite, using a word like \"not\" or \"no\" nearby. "
                  "That usually works in your favour, but read the full sentence to be sure.")
 
-_NEG_RE = re.compile(r"\b(?:not|no|never|neither|nor|without|cannot)\b|n[\u2019']t\b", re.I)
+_NEG_RE = re.compile(r"\b(?:not|no|never|neither|nor|without|cannot|nothing|none|shall\s+not)\b|n[\u2019']t\b", re.I)
 _NEG_SKIP = re.compile(r"\b(?:no|not)\s+(?:later|earlier|less|more|fewer|greater|only)\b|\bnot\s+only\b", re.I)
 
 
 def _is_negated(text, start):
-    """Basic context rule: is there a negation just before the matched phrase?"""
-    before = text[max(0, start - 45):start]
+    """Context rule: is there a negation before or applying to the matched phrase, or is whole sentence negated?"""
+    # If the sentence starts with an absolute negation (e.g. "No termination penalty...", "Nothing in this clause...")
+    if re.match(r"^\s*(?:no\b|nothing\b|neither\b|none\b)", text, re.I):
+        return True
+    before = text[max(0, start - 55):start]
     cut = max(before.rfind(","), before.rfind(";"), before.rfind(":"), before.rfind("("))
     if cut != -1:
         before = before[cut + 1:]
@@ -522,7 +563,12 @@ def _is_negated(text, start):
         if i != -1:
             before = before[i + len(sep):]
     before = _NEG_SKIP.sub(" ", before)
-    return bool(_NEG_RE.search(before))
+    if _NEG_RE.search(before):
+        return True
+    # Check within 25 characters after start if start was near beginning
+    if start <= 15 and _NEG_RE.search(text[:min(len(text), 40)]):
+        return True
+    return False
 
 
 def _analyze_rules_only(text):
@@ -575,7 +621,7 @@ SECTION_HINTS = {
     "Renewal": {"RENEW"}, "Cancellation": {"END", "NOTICE"}, "Refund": {"REFUND"},
     "Payment": {"MONEY", "LATE", "DEPOSIT", "PENALTY"}, "Privacy": {"DATA", "COLLECT", "SHARE", "privacy"},
     "Liability": {"LIABLE", "LOSS", "COVER", "WARRANT"}, "Disputes": {"DISPUTE", "ARBITR", "COURT"},
-    "Changes": {"CHANGE", "TERMS"},
+    "Changes": {"CHANGE", "TERMS"}, "Service Level": {"SERVICE", "UPTIME", "DOWNTIME"},
 }
 ACTOR_PLAIN = ("This wording gives the right, or the burden, to the other party rather than to you, "
                "so it usually works in your favour. Read the full sentence to be sure.")
@@ -643,6 +689,8 @@ def analyze_clause(text, section="", mode="hybrid"):
             detection = "meaning"
 
         negated = bool(rule["neg"] and _is_negated(text, start))
+        # Contextual check: Mutual protection or standard mutual rights
+        is_mutual = bool(re.search(r"\b(?:either\s+party|both\s+parties|each\s+party|mutually|mutual\s+written|reasonable\s+care)\b", text, re.I))
         favourable = False
         actor = RISK_ACTOR.get(rule["id"])
         if actor and info and ACTOR_EXEMPT.get(rule["id"], set()) & info["names"]:
@@ -663,7 +711,15 @@ def analyze_clause(text, section="", mode="hybrid"):
 
         level = rule["level"]
         protective = bool(info and info["guard"])
-        if protective and not (negated or favourable or definition):
+        if is_mutual:
+            # Symmetrical rights/duties (e.g. mutual termination with notice, bilateral liability caps/waiver)
+            if level == "High":
+                level = "Medium"
+                notes.append("Bilateral / mutual clause applies equally to both parties.")
+            elif level == "Medium":
+                level = "Low"
+                notes.append("Mutual provision with standard terms.")
+        elif protective and not (negated or favourable or definition):
             level = {"High": "Medium", "Medium": "Low", "Low": "Low"}[level]
             notes.append("Protective wording in the same sentence lowers the attention level.")
         if negated or favourable or definition:
@@ -684,6 +740,23 @@ def analyze_clause(text, section="", mode="hybrid"):
         if cur is None or key > (LEVELS[cur["level"]], cur["confidence"]):
             best[rule["category"]] = cand
     reasons = list(best.values())
+    # Deduplicate overlapping spans across categories (e.g. "termination penalty" matching both cancel_fee and pay_late)
+    if len(reasons) > 1:
+        deduped = []
+        for r in sorted(reasons, key=lambda x: (-LEVELS[x["level"]], -(x["span"][1] - x["span"][0]), -x["confidence"])):
+            r_s, r_e = r["span"]
+            overlap = False
+            for d in deduped:
+                d_s, d_e = d["span"]
+                # If spans substantially overlap (> 50% of the shorter span)
+                inter = max(0, min(r_e, d_e) - max(r_s, d_s))
+                shorter = min(r_e - r_s, d_e - d_s)
+                if shorter > 0 and (inter / float(shorter)) >= 0.5:
+                    overlap = True
+                    break
+            if not overlap:
+                deduped.append(r)
+        reasons = deduped
     reasons.sort(key=lambda r: (-LEVELS[r["level"]], -r["confidence"], CATEGORIES.index(r["category"])))
     return reasons
 
@@ -800,114 +873,58 @@ def extract_obligations(clauses):
 # --------------------------------------------------------------------------
 def score_from_counts(high, medium, low, total_clauses=None):
     """
-    Computes a balanced contract risk score (0-100) reflecting provision density.
-    A single high risk provision gives significant attention (e.g. 35-45),
-    while multiple severe clauses push toward 70-100 without artificial clipping.
+    Transparent Contract Risk Scoring Methodology:
+    - Analyzes risk by severity hierarchy:
+      * High Risk: Critical, unbalanced liabilities (Indemnities, Auto-renewal traps, Unilateral amendment).
+      * Medium Risk: Operational & financial obligations (Notice periods, Late fees, Deposits).
+      * Low Risk: Standard provisions & informational indicators (Confidentiality, Payment duty, Definitions).
+    - Prevents contracts with zero high risks from receiving false high scores.
+    - Calibrates 0-100 score proportionally to risk density and actual legal exposure.
     """
     if high == 0 and medium == 0 and low == 0:
         return 0, "Low"
-    
-    # Weighted base risk index
-    raw_points = (high * 22) + (medium * 8) + (low * 2)
-    
-    if total_clauses and total_clauses > 0:
-        # Scale with clause density for long contracts
-        density_factor = min(1.3, max(0.85, 1.0 + (high + medium) / float(total_clauses)))
-        raw_points = raw_points * density_factor
 
-    # Logarithmic-style progressive dampening so score scales smoothly up to 100
-    if raw_points <= 40:
-        score = int(raw_points)
-    elif raw_points <= 100:
-        score = int(40 + (raw_points - 40) * 0.7)
+    # Base weighted points by actual contractual risk impact:
+    # - High risks (e.g. unilateral amendments, automatic evergreen rollovers, full indemnity)
+    # - Medium risks (e.g. monetary caps, notice periods, late penalties)
+    # - Low risks (e.g. payment duties, confidentiality, mutual covenants)
+    high_points = high * 18
+    med_points = medium * 6
+    low_points = min(8, low * 1)
+    raw_score = high_points + med_points + low_points
+
+    # Density adjustment: normalize based on clause ratio
+    if total_clauses and total_clauses > 0:
+        risk_density = (high * 2 + medium) / float(total_clauses)
+        if high <= 1 and risk_density < 0.35:
+            raw_score = int(raw_score * 0.75)
+        elif high >= 3 and risk_density > 0.60:
+            raw_score = int(raw_score * 1.20)
+
+    # Calibrated risk stratification:
+    if high == 0:
+        # Balanced or Moderate terms without any severe unbalance
+        # If there are multiple medium operational risks, allow it to reflect moderate risk (up to 45)
+        score = min(45, raw_score)
+    elif high == 1:
+        # Moderate Risk with 1 isolated high concern: calibrated to 40-58
+        score = min(58, max(38, raw_score))
+    elif high == 2:
+        # Moderate-to-High Risk: 60-75
+        score = min(75, max(60, raw_score))
     else:
-        score = int(82 + min(18, (raw_points - 100) * 0.25))
-        
-    score = max(5, min(100, score))
-    level = "High" if score >= 55 or high >= 2 else "Medium" if score >= 25 or high == 1 or medium >= 2 else "Low"
+        # 3 or more critical high risks: Serious / High Risk: 80-100
+        score = min(100, max(80, raw_score))
+
+    score = max(0, min(100, score))
+    level = "High" if score >= 60 else "Medium" if score >= 25 else "Low"
     return score, level
 
 
-def analyze_document(pages):
-    clauses, truncated = build_clauses(pages)
-    flagged, counts, cats = [], {"High": 0, "Medium": 0, "Low": 0}, {}
-    for c in clauses:
-        reasons = analyze_clause(c["text"], c.get("section", ""))
-        if not reasons:
-            continue
-        for r in reasons:
-            counts[r["level"]] += 1
-            cats[r["category"]] = cats.get(r["category"], 0) + 1
-        flagged.append({**c, "level": _top_level(reasons), "reasons": reasons,
-                        "segments": _segments(c["text"], reasons)})
-    dispute_tips = {
-        "cancel_provider": ("Negotiate a symmetric cancellation right so both parties have equal notice periods.", "Either party may terminate this agreement upon providing thirty (30) days' written notice."),
-        "cancel_penalty": ("Request that early termination fees be capped or waived if termination is due to service disruption or breach.", "Early termination charges shall not exceed one month's standard fee."),
-        "renew_auto": ("Request explicit written opt-in rather than automatic multi-year rollover.", "This agreement shall expire at the end of the term unless renewed by mutual written consent of both parties."),
-        "renew_optout": ("Request that the opt-out notice window be shortened to 15 or 30 days.", "Either party may elect not to renew by providing written notice at least thirty (30) days prior to the expiration date."),
-        "refund_none": ("Insist on prorated refunds if service is cancelled without cause or if provider breaches.", "In the event of early termination by the provider without cause, fees paid in advance shall be refunded on a pro-rata basis."),
-        "privacy_share": ("Insert strict restrictions limiting third-party sharing exclusively to core service delivery with no data sale.", "Personal data shall not be sold, licensed, or shared with third parties for marketing purposes without prior explicit consent."),
-        "liab_limit": ("Ensure the limitation of liability is mutual and excludes gross negligence, willful misconduct, or data breaches.", "Neither party's aggregate liability under this agreement shall exceed the total fees paid in the preceding twelve (12) months, excluding breaches of confidentiality or gross negligence."),
-        "liab_indemnity": ("Limit indemnification to final court-adjudicated third-party claims and remove unilateral attorney fee obligations.", "Each party agrees to indemnify the other solely against third-party claims arising directly from proven willful misconduct."),
-        "change_unilateral": ("Require at least 30 days advance written notice for any amendments and the right to terminate without penalty if changes are unacceptable.", "Provider may amend these terms upon thirty (30) days' prior written notice. If User objects, User may terminate the agreement without penalty prior to the effective date."),
-    }
-
-    payments, notices = extract_obligations(clauses)
-    score, level = score_from_counts(counts["High"], counts["Medium"], counts["Low"], total_clauses=len(clauses))
-    has_pages = bool(pages) and pages[0][0] is not None
-
-    # Attach recommendations / rephrase advice to flagged clauses
-    for c in flagged:
-        for r in c["reasons"]:
-            # find rule key if possible or match category
-            cat = r.get("category", "")
-            title = r.get("title", "").lower()
-            tip = None
-            rephrase = None
-            if "indemni" in title or "cover the other" in title:
-                tip, rephrase = dispute_tips["liab_indemnity"]
-            elif "renew" in title or "renew" in cat.lower():
-                tip, rephrase = dispute_tips["renew_auto"]
-            elif "cancel" in title or "terminat" in title:
-                tip, rephrase = dispute_tips["cancel_provider"]
-            elif "dispute" in cat.lower() or "arbitrat" in title:
-                tip, rephrase = ("Consider retaining local small claims court rights or mutual mediation before binding arbitration.", "Any dispute arising hereunder shall first be submitted to good-faith mediation prior to formal proceedings.")
-            elif "liabilit" in cat.lower() or "responsibility" in title:
-                tip, rephrase = dispute_tips["liab_limit"]
-            elif "change" in cat.lower() or "unilateral" in title:
-                tip, rephrase = dispute_tips["change_unilateral"]
-            elif "privacy" in cat.lower() or "data" in title:
-                tip, rephrase = dispute_tips["privacy_share"]
-            elif "refund" in cat.lower():
-                tip, rephrase = dispute_tips["refund_none"]
-            
-            if tip:
-                r["recommendation"] = tip
-                r["suggested_rephrase"] = rephrase
-
-    # Build key takeaways / AI-style executive summary
-    takeaways = []
-    if counts["High"] > 0:
-        high_cats = list({r["category"] for c in flagged for r in c["reasons"] if r["level"] == "High"})
-        takeaways.append(f"Contains {counts['High']} High-Risk item{'s' if counts['High']>1 else ''} primarily involving {', '.join(high_cats)}.")
-    if notices:
-        takeaways.append(f"Notice requirements detected: {len(notices)} deadline{'s' if len(notices)>1 else ''} including {notices[0]['period']} ({notices[0]['about']}).")
-    if payments:
-        takeaways.append(f"Key financial obligations: {len(payments)} payment term{'s' if len(payments)>1 else ''} recorded, starting with {payments[0]['amount']} ({payments[0]['kind']}).")
-    if not takeaways:
-        takeaways.append("No critical standard risks or automatic renewal traps detected by predefined rules.")
-
-    return {
-        "page_count": len(pages) if has_pages else None,
-        "clause_count": len(clauses),
-        "truncated": truncated,
-        "summary": {"high": counts["High"], "medium": counts["Medium"], "low": counts["Low"],
-                    "score": score, "level": level, "takeaways": takeaways},
-        "categories": [{"name": n, "count": cats[n]} for n in CATEGORIES if n in cats],
-        "flagged": flagged,
-        "payments": payments,
-        "notices": notices,
-    }
+def analyze_document(pages, filename=""):
+    """Delegate to the clean, modular DocumentIQ 2.0 Engine Pipeline."""
+    from engine.core import analyze_document_pipeline
+    return analyze_document_pipeline(pages, filename=filename)
 
 
 # --------------------------------------------------------------------------

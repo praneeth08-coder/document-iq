@@ -78,7 +78,7 @@ _FAMILIES = {
               "blame fault culpable",
     "LOSS": "loss losses lose damage damages harm injury claim claims expense expenses",
     "WARRANT": "warranty warranties guarantee guarantees guaranteed",
-    "COVER": "indemnify indemnity indemnification compensate compensation",
+    "COVER": "indemnify indemnity indemnification",
     "DISPUTE": "dispute disputes disagreement controversy lawsuit litigation sue proceeding proceedings",
     "ARBITR": "arbitration arbitrator arbitrate arbitral mediation",
     "COURT": "court courts judge jury tribunal",
@@ -150,6 +150,7 @@ _PHRASES = {
     ("stay", "the", "same"): "FIXED", ("stays", "the", "same"): "FIXED",
     ("both", "sides"): "MUTUAL", ("both", "parties"): "MUTUAL", ("either", "party"): "MUTUAL",
     ("written", "agreement"): "MUTUAL", ("by", "agreement"): "MUTUAL", ("mutual", "agreement"): "MUTUAL",
+    ("not", "exceed"): "LIMIT", ("shall", "not", "exceed"): "LIMIT", ("limited", "to"): "LIMIT",
 }
 _MAX_PHRASE = max(len(k) for k in _PHRASES)
 
@@ -207,7 +208,7 @@ INTENTS = {
         "If you do not cancel before the end date the subscription extends for a further year.",
         "The agreement is extended each year without any action from you.",
         "You will be billed again every cycle until you end the membership.",
-        "This lease automatically continues on a month to month basis.",
+        "This agreement automatically renews for successive multi-year periods.",
     ],
     "renew_price": [
         "The price may go up when your plan renews.",
@@ -284,10 +285,13 @@ INTENTS = {
     "liab_limit": [
         "We will not be responsible for any loss you suffer.",
         "The company accepts no responsibility for damage.",
-        "Our total responsibility is limited to the fees you paid.",
         "You use the service entirely at your own risk.",
         "No guarantee is given about the quality of the service.",
         "We exclude all warranties to the fullest extent allowed.",
+    ],
+    "liab_cap": [
+        "Our total responsibility is limited to the fees you paid.",
+        "Liability shall not exceed the fees paid under this agreement.",
     ],
     "liab_indemnity": [
         "You agree to cover our costs if anyone makes a claim because of your actions.",
@@ -320,7 +324,9 @@ INTENTS = {
 CONCEPTS = {
     "renew_auto": [(0.85, 8, "RENEW", "AUTO"), (0.75, 10, "RENEW", "UNLESS")],
     "renew_price": [(0.70, 8, "RENEW", "MONEY", "CHANGE"), (0.65, 8, "RENEW", "PRICEUP")],
-    "cancel_fee": [(0.80, 8, "END", "PENALTY"), (0.80, 8, "END", "MONEY", "EARLY")],
+    "cancel_fee": [(0.85, 8, "END", "PENALTY"), (0.80, 8, "END", "LIQUIDATED")],
+    "cancel_notice": [(0.70, 6, "NOTICE", "END"), (0.65, 8, "END", "NOTICE")],
+    "pay_late": [(0.80, 8, "LATE", "PENALTY"), (0.75, 8, "LATE", "MONEY"), (0.70, 8, "OVERDUE", "MONEY")],
     "cancel_blocked": [(0.70, 2, "NEG", "END", "AGREE")],
     "cancel_provider": [(0.85, 7, "END", "ANYTIME"), (0.85, 8, "END", "NONOTICE")],
     "cancel_notice": [(0.70, 6, "NOTICE", "END")],
@@ -330,11 +336,11 @@ CONCEPTS = {
     "pay_deposit": [(0.65, 8, "DEPOSIT", "MONEY")],
     "pay_change": [(0.85, 8, "CHANGE", "MONEY", "ANYTIME"), (0.55, 6, "CHANGE", "MONEY"), (0.80, 8, "PRICEUP", "ANYTIME"),
                    (0.60, 6, "PRICEUP", "CAN")],
-    "privacy_share": [(0.90, 10, "SHARE", "DATA", "THIRD"), (0.65, 8, "SHARE", "DATA"),
-                      (0.65, 8, "SHARE", "THIRD"), (0.55, 8, "DATA", "THIRD")],
+    "privacy_share": [(0.90, 10, "SHARE", "DATA", "THIRD"), (0.75, 8, "SHARE", "THIRD")],
     "privacy_collect": [(0.70, 8, "COLLECT", "PERSONAL"), (0.60, 8, "COLLECT", "DATA")],
-    "liab_limit": [(0.85, 3, "NEG", "LIABLE"), (0.80, 8, "LIABLE", "LIMIT"), (0.85, 1, "OWNRISK"),
+    "liab_limit": [(0.85, 3, "NEG", "LIABLE"), (0.85, 1, "OWNRISK"),
                    (0.80, 3, "NEG", "WARRANT")],
+    "liab_cap": [(0.80, 8, "LIABLE", "LIMIT")],
     "liab_indemnity": [(0.90, 8, "COVER", "LOSS"), (0.80, 1, "COVER")],
     "dispute": [(0.85, 1, "ARBITR"), (0.90, 8, "WAIVE", "COURT"), (0.90, 8, "WAIVE", "DISPUTE"),
                 (0.60, 4, "NEG", "DISPUTE"), (0.55, 8, "DISPUTE", "COURT")],
@@ -356,7 +362,9 @@ CORE = {intent: set.intersection(*[set(alt[2:]) for alt in alts]) for intent, al
 
 
 def guard_active(intent, names):
-    """Protective wording is present (and nothing is negated), so the clause is probably benign."""
+    """Protective wording is present, so the clause is probably benign."""
+    if intent in ("privacy_share", "privacy_collect") and "PROTECT" in names:
+        return True
     return bool(GUARDS.get(intent, set()) & names) and "NEG" not in names
 
 
